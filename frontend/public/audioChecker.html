@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Pipeline Checker</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        button { padding: 10px; margin: 10px 0; cursor: pointer; }
+        pre { background: #f0f0f0; padding: 10px; overflow-x: auto; }
+        .success { color: green; }
+        .error { color: red; }
+        #results { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Audio Pipeline Troubleshooter</h1>
+    <p>This tool checks if your microphone is working correctly with the web audio API.</p>
+
+    <button id="checkMic">Check Microphone</button>
+    <button id="startRecording">Start Recording</button>
+    <button id="stopRecording" disabled>Stop Recording</button>
+
+    <div id="results">
+        <h2>Results:</h2>
+        <pre id="log"></pre>
+    </div>
+
+    <script>
+        const logElement = document.getElementById('log');
+        const checkMicBtn = document.getElementById('checkMic');
+        const startRecordBtn = document.getElementById('startRecording');
+        const stopRecordBtn = document.getElementById('stopRecording');
+
+        let audioContext;
+        let stream;
+        let processor;
+        let source;
+        let audioChunks = [];
+
+        function log(message, isError = false) {
+            const now = new Date().toLocaleTimeString();
+            const className = isError ? 'error' : 'success';
+            logElement.innerHTML += `<span class="${className}">[${now}] ${message}</span>\n`;
+        }
+
+        checkMicBtn.addEventListener('click', async () => {
+            try {
+                log('Checking microphone access...');
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                log('✓ Microphone access granted!');
+                
+                // Check audio tracks
+                const tracks = stream.getAudioTracks();
+                log(`Found ${tracks.length} audio tracks`);
+                tracks.forEach((track, i) => {
+                    log(`Track ${i+1}: ${track.label}, enabled: ${track.enabled}`);
+                });
+                
+                // Clean up
+                tracks.forEach(track => track.stop());
+                log('Microphone check complete');
+            } catch (error) {
+                log(`✗ Error accessing microphone: ${error.message}`, true);
+            }
+        });
+
+        startRecordBtn.addEventListener('click', async () => {
+            try {
+                log('Starting audio recording...');
+                
+                // Get microphone access
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                log('✓ Microphone access granted');
+                
+                // Create audio context
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                    sampleRate: 16000
+                });
+                log(`✓ AudioContext created (sample rate: ${audioContext.sampleRate}Hz)`);
+                
+                // Create source node
+                source = audioContext.createMediaStreamSource(stream);
+                log('✓ Media stream source created');
+                
+                // Create ScriptProcessor node
+                processor = audioContext.createScriptProcessor(4096, 1, 1);
+                log('✓ ScriptProcessor created (buffer size: 4096)');
+                
+                audioChunks = [];
+                
+                // Process audio data
+                processor.onaudioprocess = (e) => {
+                    const inputData = e.inputBuffer.getChannelData(0);
+                    const audioData = new Float32Array(inputData);
+                    
+                    // Check if we're getting non-zero audio data
+                    let hasSound = false;
+                    for (let i = 0; i < audioData.length; i++) {
+                        if (Math.abs(audioData[i]) > 0.01) {
+                            hasSound = true;
+                            break;
+                        }
+                    }
+                    
+                    audioChunks.push(audioData);
+                    
+                    if (audioChunks.length % 10 === 0) {
+                        log(`Processed ${audioChunks.length} audio chunks. ${hasSound ? 'Sound detected!' : 'No sound detected.'}`);
+                    }
+                };
+                
+                // Connect nodes
+                source.connect(processor);
+                processor.connect(audioContext.destination);
+                log('✓ Audio pipeline connected');
+                
+                startRecordBtn.disabled = true;
+                stopRecordBtn.disabled = false;
+                log('Recording started. Speak into your microphone...');
+                
+            } catch (error) {
+                log(`✗ Error starting recording: ${error.message}`, true);
+            }
+        });
+
+        stopRecordBtn.addEventListener('click', () => {
+            try {
+                log('Stopping recording...');
+                
+                // Disconnect and clean up
+                if (processor) {
+                    processor.disconnect();
+                    log('✓ Processor disconnected');
+                }
+                
+                if (source) {
+                    source.disconnect();
+                    log('✓ Source disconnected');
+                }
+                
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    log('✓ Audio tracks stopped');
+                }
+                
+                if (audioContext) {
+                    audioContext.close();
+                    log('✓ AudioContext closed');
+                }
+                
+                log(`Recording stopped. Processed ${audioChunks.length} total audio chunks.`);
+                startRecordBtn.disabled = false;
+                stopRecordBtn.disabled = true;
+                
+            } catch (error) {
+                log(`✗ Error stopping recording: ${error.message}`, true);
+            }
+        });
+    </script>
+</body>
+</html>

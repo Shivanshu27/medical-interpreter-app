@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Socket Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        button { padding: 10px; margin: 10px 0; cursor: pointer; }
+        #audioMeter { width: 100%; height: 30px; background-color: #eee; margin: 10px 0; position: relative; }
+        #level { height: 100%; width: 0%; background-color: green; transition: width 0.1s; }
+        #log { height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin-top: 20px; font-family: monospace; font-size: 12px; }
+        .error { color: red; }
+        .success { color: green; }
+        .section { border: 1px solid #ccc; padding: 10px; margin: 10px 0; }
+    </style>
+    <!-- Load Socket.io directly from CDN -->
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js" integrity="sha384-c79GN5VsunZvi+Q/WObgk2in0CbZsHnjEqvFxC5DxHn9lTfNce2WW6h2pH6u/kF+" crossorigin="anonymous"></script>
+</head>
+<body>
+    <h1>Audio Socket Test</h1>
+    
+    <div class="section">
+        <h2>Socket Connection</h2>
+        <button id="connectBtn">Connect Socket</button>
+        <button id="testSocketBtn" disabled>Test Socket</button>
+        <div>Status: <span id="socketStatus">Disconnected</span></div>
+    </div>
+    
+    <div class="section">
+        <h2>Audio Capture</h2>
+        <button id="startBtn" disabled>Start Audio</button>
+        <button id="stopBtn" disabled>Stop Audio</button>
+        <div id="audioMeter"><div id="level"></div></div>
+        <div>Current level: <span id="levelValue">0.000</span></div>
+    </div>
+    
+    <div id="log"></div>
+    
+    <script>
+        // DOM elements
+        const connectBtn = document.getElementById('connectBtn');
+        const testSocketBtn = document.getElementById('testSocketBtn');
+        const socketStatus = document.getElementById('socketStatus');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const levelEl = document.getElementById('level');
+        const levelValueEl = document.getElementById('levelValue');
+        const logEl = document.getElementById('log');
+        
+        // Variables
+        let socket;
+        let audioContext;
+        let stream;
+        let processor;
+        let sessionId;
+        
+        // Enhanced logging function to include console logs
+        function log(message, type = '') {
+            const now = new Date().toLocaleTimeString();
+            const logMessage = `[${now}] ${message}`;
+            
+            // Display log in the UI
+            logEl.innerHTML += `<div class="${type}">${logMessage}</div>`;
+            logEl.scrollTop = logEl.scrollHeight;
+
+            // Log to the browser console
+            if (type === 'error') {
+                console.error(logMessage);
+            } else if (type === 'success') {
+                console.info(logMessage);
+            } else {
+                console.log(logMessage);
+            }
+        }
+        
+        // Connect to socket
+        connectBtn.addEventListener('click', () => {
+            try {
+                log('Connecting to server...');
+                
+                // Create socket connection
+                socket = io('http://localhost:5000', {
+                    transports: ['websocket'],
+                    reconnection: true
+                });
+                
+                socket.on('connect', () => {
+                    log(`Socket connected with ID: ${socket.id}`, 'success');
+                    socketStatus.textContent = `Connected (${socket.id})`;
+                    socketStatus.style.color = 'green';
+                    
+                    // Enable buttons
+                    testSocketBtn.disabled = false;
+                    startBtn.disabled = false;
+                    connectBtn.disabled = true;
+                    
+                    // Generate session ID
+                    sessionId = `test_${Date.now()}`;
+                    log(`Generated session ID: ${sessionId}`);
+                    
+                    // Join session
+                    socket.emit('join_session', {
+                        sessionId,
+                        role: 'Doctor'
+                    });
+                });
+                
+                socket.on('connect_error', (error) => {
+                    log(`Connection error: ${error.message}`, 'error');
+                    socketStatus.textContent = 'Error';
+                    socketStatus.style.color = 'red';
+                });
+                
+                socket.on('session_joined', (data) => {
+                    log(`Session joined response: ${JSON.stringify(data)}`, 'success');
+                });
+                
+                socket.on('transcript_update', (data) => {
+                    log(`Transcript received: ${JSON.stringify(data)}`, 'success');
+                });
+                
+                socket.on('error', (error) => {
+                    log(`Socket error: ${JSON.stringify(error)}`, 'error');
+                });
+                
+                socket.on('disconnect', () => {
+                    log('Socket disconnected');
+                    socketStatus.textContent = 'Disconnected';
+                    socketStatus.style.color = 'red';
+                    
+                    // Disable buttons
+                    testSocketBtn.disabled = true;
+                    startBtn.disabled = true;
+                    connectBtn.disabled = false;
+                });
+                
+            } catch (error) {
+                log(`Error connecting: ${error.message}`, 'error');
+            }
+        });
+        
+        // Test socket communication
+        testSocketBtn.addEventListener('click', () => {
+            if (!socket || !socket.connected) {
+                log('Socket not connected', 'error');
+                return;
+            }
+            
+            log('Sending test message to server...');
+            socket.emit('test_connection', {
+                timestamp: new Date().toISOString(),
+                browser: navigator.userAgent
+            });
+            
+            // Listen for response
+            socket.once('test_response', (data) => {
+                log(`Received test response: ${JSON.stringify(data)}`, 'success');
+            });
+        });
+        
+        // Start audio processing
+        startBtn.addEventListener('click', async () => {
+            try {
+                log('Starting audio capture...');
+                
+                // Request microphone access
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                log('Microphone access granted', 'success');
+                
+                // Create audio context
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                    sampleRate: 16000
+                });
+                log(`Audio context created with sample rate ${audioContext.sampleRate}Hz`);
+                
+                // Create media stream source
+                const source = audioContext.createMediaStreamSource(stream);
+                log('Media stream source created');
+                
+                // Create analyzer for visualizing audio levels
+                const analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                source.connect(analyser);
+                
+                const bufferLength = analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+                
+                // Update meter periodically
+                const meterInterval = setInterval(() => {
+                    analyser.getByteFrequencyData(dataArray);
+                    
+                    let sum = 0;
+                    let max = 0;
+                    for (let i = 0; i < bufferLength; i++) {
+                        sum += dataArray[i];
+                        max = Math.max(max, dataArray[i]);
+                    }
+                    
+                    const avg = sum / bufferLength;
+                    const level = Math.min(100, avg * 3);
+                    
+                    levelEl.style.width = `${level}%`;
+                    levelValueEl.textContent = avg.toFixed(1);
+                    
+                    // Change color based on level
+                    if (level > 50) {
+                        levelEl.style.backgroundColor = 'red';
+                    } else if (level > 20) {
+                        levelEl.style.backgroundColor = 'orange';
+                    } else {
+                        levelEl.style.backgroundColor = 'green';
+                    }
+                    
+                }, 100);
+                
+                // Create script processor
+                processor = audioContext.createScriptProcessor(4096, 1, 1);
+                log('Audio processor created');
+                
+                let packetCounter = 0;
+                
+                // Process audio
+                processor.onaudioprocess = (e) => {
+                    const inputData = e.inputBuffer.getChannelData(0);
+                    
+                    // Check for audio activity
+                    let maxLevel = 0;
+                    for (let i = 0; i < inputData.length; i++) {
+                        maxLevel = Math.max(maxLevel, Math.abs(inputData[i]));
+                    }
+                    
+                    // Send audio data to server
+                    if (socket && socket.connected) {
+                        packetCounter++;
+                        const dataArray = new Float32Array(inputData);
+                        socket.emit('audio_data', dataArray.buffer);
+                        
+                        // Log occasionally
+                        if (packetCounter % 10 === 0) {
+                            log(`Sent audio packet #${packetCounter}, max level: ${maxLevel.toFixed(3)}`);
+                        }
+                    } else {
+                        log('Cannot send audio - socket not connected', 'error');
+                    }
+                };
+                
+                // Connect processor
+                source.connect(processor);
+                processor.connect(audioContext.destination);
+                
+                // Update UI
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                log('Audio processing started', 'success');
+                
+            } catch (error) {
+                log(`Error starting audio: ${error.message}`, 'error');
+            }
+        });
+        
+        // Stop audio processing
+        stopBtn.addEventListener('click', () => {
+            try {
+                log('Stopping audio...');
+                
+                // Signal end of speech
+                if (socket && socket.connected) {
+                    socket.emit('end_speech');
+                    log('Sent end_speech event');
+                }
+                
+                // Clean up audio
+                if (processor) {
+                    processor.disconnect();
+                }
+                
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+                
+                if (audioContext) {
+                    audioContext.close();
+                }
+                
+                // Reset UI
+                levelEl.style.width = '0%';
+                levelValueEl.textContent = '0.0';
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                
+                log('Audio processing stopped', 'success');
+                
+            } catch (error) {
+                log(`Error stopping audio: ${error.message}`, 'error');
+            }
+        });
+        
+        // Log initial state
+        log('Page loaded. Click "Connect Socket" to begin.');
+    </script>
+</body>
+</html>

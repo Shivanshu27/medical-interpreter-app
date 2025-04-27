@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Interpreter Debugger</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; }
+        button, select { padding: 10px; margin: 10px 0; cursor: pointer; }
+        pre { background: #f0f0f0; padding: 10px; overflow-x: auto; max-height: 300px; overflow-y: auto; }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+        #results { margin-top: 20px; }
+        .test-group { border: 1px solid #ccc; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Medical Interpreter Debug Tool</h1>
+    
+    <div class="test-group">
+        <h2>1. Socket.io Connection Test</h2>
+        <button id="testConnection">Test Connection</button>
+        <pre id="connectionLog"></pre>
+    </div>
+    
+    <div class="test-group">
+        <h2>2. Microphone Test</h2>
+        <button id="checkMic">Test Microphone</button>
+        <pre id="micLog"></pre>
+    </div>
+    
+    <div class="test-group">
+        <h2>3. Audio Processing Pipeline Test</h2>
+        <button id="testAudioPipeline">Test Audio Pipeline</button>
+        <button id="stopAudioTest" disabled>Stop Test</button>
+        <pre id="audioLog"></pre>
+    </div>
+    
+    <div class="test-group">
+        <h2>4. End-to-End Test</h2>
+        <div>
+            <label for="role">Role:</label>
+            <select id="role">
+                <option value="Doctor">Doctor (English)</option>
+                <option value="Patient">Patient (Spanish)</option>
+            </select>
+        </div>
+        <button id="testEndToEnd">Run End-to-End Test</button>
+        <button id="stopE2ETest" disabled>Stop Test</button>
+        <pre id="e2eLog"></pre>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Logging utilities
+        function createLogger(elementId) {
+            const logElement = document.getElementById(elementId);
+            return {
+                log: (message, type = 'normal') => {
+                    const now = new Date().toLocaleTimeString();
+                    const className = type === 'error' ? 'error' : 
+                                    type === 'warning' ? 'warning' : 
+                                    type === 'success' ? 'success' : '';
+                    logElement.innerHTML += `<span class="${className}">[${now}] ${message}</span>\n`;
+                    logElement.scrollTop = logElement.scrollHeight;
+                },
+                clear: () => {
+                    logElement.innerHTML = '';
+                }
+            };
+        }
+        
+        // Create loggers for each section
+        const connectionLogger = createLogger('connectionLog');
+        const micLogger = createLogger('micLog');
+        const audioLogger = createLogger('audioLog');
+        const e2eLogger = createLogger('e2eLog');
+        
+        // Test variables
+        let socket;
+        let stream;
+        let audioContext;
+        let processor;
+        let sessionId;
+        
+        // 1. Socket.io Connection Test
+        document.getElementById('testConnection').addEventListener('click', () => {
+            connectionLogger.clear();
+            connectionLogger.log('Testing Socket.io connection...');
+            
+            try {
+                // Close existing connection if any
+                if (socket) {
+                    socket.disconnect();
+                }
+                
+                // Connect to server
+                socket = io('http://localhost:5000', {
+                    transports: ['websocket'],
+                    reconnection: true
+                });
+                
+                socket.on('connect', () => {
+                    connectionLogger.log(`Connected to server: ${socket.id}`, 'success');
+                });
+                
+                socket.on('connect_error', (err) => {
+                    connectionLogger.log(`Connection error: ${err.message}`, 'error');
+                });
+                
+                socket.on('error', (err) => {
+                    connectionLogger.log(`Socket error: ${err.message}`, 'error');
+                });
+                
+                socket.on('disconnect', (reason) => {
+                    connectionLogger.log(`Disconnected: ${reason}`, 'warning');
+                });
+                
+                // Setup general event listener for debugging
+                socket.onAny((event, ...args) => {
+                    if (event !== 'audio_data') { // Skip audio_data events as they are frequent
+                        connectionLogger.log(`Event received: ${event}`);
+                    }
+                });
+            } catch (error) {
+                connectionLogger.log(`Error setting up socket: ${error.message}`, 'error');
+            }
+        });
+        
+        // 2. Microphone Test
+        document.getElementById('checkMic').addEventListener('click', async () => {
+            micLogger.clear();
+            micLogger.log('Testing microphone access...');
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                micLogger.log('✓ Microphone access granted!', 'success');
+                
+                // Check audio tracks
+                const tracks = stream.getAudioTracks();
+                micLogger.log(`Found ${tracks.length} audio tracks`);
+                tracks.forEach((track, i) => {
+                    micLogger.log(`Track ${i+1}: ${track.label}, enabled: ${track.enabled}`);
+                });
+                
+                // Create an AudioContext to check audio processing capability
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                micLogger.log(`AudioContext created, sample rate: ${audioContext.sampleRate}Hz`);
+                
+                // Test if createMediaStreamSource works
+                const source = audioContext.createMediaStreamSource(stream);
+                micLogger.log('✓ Media stream source created successfully', 'success');
+                
+                // Check if ScriptProcessor is supported
+                try {
+                    const processor = audioContext.createScriptProcessor(4096, 1, 1);
+                    micLogger.log('✓ ScriptProcessor created successfully', 'success');
+                } catch (err) {
+                    micLogger.log(`✗ ScriptProcessor not supported: ${err.message}`, 'error');
+                }
+                
+                // Check if AudioWorklet is supported
+                if (audioContext.audioWorklet) {
+                    micLogger.log('✓ AudioWorklet API is supported', 'success');
+                } else {
+                    micLogger.log('✗ AudioWorklet API is not supported', 'warning');
+                }
+                
+                // Clean up
+                tracks.forEach(track => track.stop());
+                audioContext.close();
+                micLogger.log('Microphone test complete', 'success');
+            } catch (error) {
+                micLogger.log(`✗ Error accessing microphone: ${error.message}`, 'error');
+            }
+        });
+        
+        // 3. Audio Processing Pipeline Test
+        const testAudioBtn = document.getElementById('testAudioPipeline');
+        const stopAudioBtn = document.getElementById('stopAudioTest');
+        
+        testAudioBtn.addEventListener('click', async () => {
+            audioLogger.clear();
+            audioLogger.log('Testing audio processing pipeline...');
+            
+            try {
+                // Get microphone access
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioLogger.log('✓ Microphone access granted', 'success');
+                
+                // Create audio context
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                    sampleRate: 16000
+                });
+                audioLogger.log(`✓ AudioContext created (sample rate: ${audioContext.sampleRate}Hz)`, 'success');
+                
+                // Create source node
+                const source = audioContext.createMediaStreamSource(stream);
+                audioLogger.log('✓ Media stream source created', 'success');
+                
+                // Create ScriptProcessor node
+                processor = audioContext.createScriptProcessor(4096, 1, 1);
+                audioLogger.log('✓ ScriptProcessor created (buffer size: 4096)', 'success');
+                
+                let chunkCount = 0;
+                let signalDetected = false;
+                
+                // Process audio data
+                processor.onaudioprocess = (e) => {
+                    chunkCount++;
+                    const inputData = e.inputBuffer.getChannelData(0);
+                    
+                    // Check if we're getting non-zero audio data
+                    let hasSignal = false;
+                    let maxValue = 0;
+                    
+                    for (let i = 0; i < inputData.length; i++) {
+                        maxValue = Math.max(maxValue, Math.abs(inputData[i]));
+                        if (Math.abs(inputData[i]) > 0.01) {
+                            hasSignal = true;
+                        }
+                    }
+                    
+                    if (hasSignal && !signalDetected) {
+                        audioLogger.log('✓ Audio signal detected!', 'success');
+                        signalDetected = true;
+                    }
+                    
+                    if (chunkCount % 10 === 0) {
+                        audioLogger.log(`Processed ${chunkCount} chunks. Max amplitude: ${maxValue.toFixed(4)}`);
+                    }
+                };
+                
+                // Connect nodes
+                source.connect(processor);
+                processor.connect(audioContext.destination);
+                audioLogger.log('✓ Audio pipeline connected', 'success');
+                
+                // Update UI
+                testAudioBtn.disabled = true;
+                stopAudioBtn.disabled = false;
+                
+                audioLogger.log('Audio pipeline test running. Speak into your microphone...');
+                
+            } catch (error) {
+                audioLogger.log(`✗ Error in audio pipeline: ${error.message}`, 'error');
+            }
+        });
+        
+        stopAudioBtn.addEventListener('click', () => {
+            audioLogger.log('Stopping audio pipeline test...');
+            
+            try {
+                // Disconnect and clean up
+                if (processor) {
+                    processor.disconnect();
+                }
+                
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+                
+                if (audioContext) {
+                    audioContext.close();
+                }
+                
+                audioLogger.log('✓ Audio pipeline test stopped', 'success');
+                
+                // Update UI
+                testAudioBtn.disabled = false;
+                stopAudioBtn.disabled = true;
+                
+            } catch (error) {
+                audioLogger.log(`✗ Error stopping test: ${error.message}`, 'error');
+            }
+        });
+        
+        // 4. End-to-End Test
+        const e2eTestBtn = document.getElementById('testEndToEnd');
+        const stopE2EBtn = document.getElementById('stopE2ETest');
+        const roleSelect = document.getElementById('role');
+        
+        e2eTestBtn.addEventListener('click', async () => {
+            e2eLogger.clear();
+            e2eLogger.log('Starting end-to-end test...');
+            
+            try {
+                // Setup socket if not already done
+                if (!socket || !socket.connected) {
+                    e2eLogger.log('Connecting to server...');
+                    socket = io('http://localhost:5000', {
+                        transports: ['websocket'],
+                        reconnection: true
+                    });
+                    
+                    // Wait for connection
+                    await new Promise((resolve, reject) => {
+                        socket.once('connect', resolve);
+                        socket.once('connect_error', reject);
+                        // Set a timeout in case neither event fires
+                        setTimeout(() => reject(new Error('Connection timeout')), 5000);
+                    });
+                }
+                
+                e2eLogger.log(`✓ Connected to server: ${socket.id}`, 'success');
+                
+                // Create session ID
+                sessionId = `test_${Date.now()}`;
+                const role = roleSelect.value;
+                e2eLogger.log(`Creating session ${sessionId} as ${role}`);
+                
+                // Join session
+                socket.emit('join_session', { sessionId, role });
+                
+                // Wait for session joined confirmation
+                await new Promise((resolve, reject) => {
+                    socket.once('session_joined', (data) => {
+                        if (data.success) {
+                            e2eLogger.log('✓ Joined session successfully', 'success');
+                            resolve();
+                        } else {
+                            reject(new Error('Failed to join session'));
+                        }
+                    });
+                    socket.once('error', reject);
+                    setTimeout(() => reject(new Error('Session join timeout')), 5000);
+                });
+                
+                // Set up audio pipeline
+                e2eLogger.log('Setting up audio pipeline...');
+                
+                // Get microphone access
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                // Create audio context
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                    sampleRate: 16000
+                });
+                
+                const source = audioContext.createMediaStreamSource(stream);
+                processor = audioContext.createScriptProcessor(4096, 1, 1);
+                
+                // Set up audio processing
+                let chunkCount = 0;
+                
+                processor.onaudioprocess = (e) => {
+                    chunkCount++;
+                    const inputData = e.inputBuffer.getChannelData(0);
+                    const audioData = new Float32Array(inputData);
+                    
+                    // Check for signal
+                    let hasSignal = false;
+                    for (let i = 0; i < audioData.length; i += 100) {
+                        if (Math.abs(audioData[i]) > 0.01) {
+                            hasSignal = true;
+                            break;
+                        }
+                    }
+                    
+                    // Send audio data to server
+                    socket.emit('audio_data', audioData.buffer);
+                    
+                    if (chunkCount % 10 === 0) {
+                        e2eLogger.log(`Sent ${chunkCount} audio chunks${hasSignal ? ' (signal detected)' : ''}`);
+                    }
+                };
+                
+                // Connect nodes
+                source.connect(processor);
+                processor.connect(audioContext.destination);
+                
+                // Listen for transcript updates
+                socket.on('transcript_update', (transcript) => {
+                    e2eLogger.log(`Received transcript: "${transcript.text}"`, 'success');
+                    if (transcript.translation) {
+                        e2eLogger.log(`Translation: "${transcript.translation}"`, 'success');
+                    }
+                });
+                
+                socket.on('audio_response', (data) => {
+                    e2eLogger.log('Received audio response', 'success');
+                });
+                
+                // Update UI
+                e2eTestBtn.disabled = true;
+                stopE2EBtn.disabled = false;
+                roleSelect.disabled = true;
+                
+                e2eLogger.log('Test running. Speak into your microphone...');
+                
+            } catch (error) {
+                e2eLogger.log(`✗ Error in E2E test: ${error.message}`, 'error');
+            }
+        });
+        
+        stopE2EBtn.addEventListener('click', async () => {
+            e2eLogger.log('Stopping end-to-end test...');
+            
+            try {
+                // Send end_speech event
+                if (socket && socket.connected) {
+                    socket.emit('end_speech');
+                }
+                
+                // Disconnect audio pipeline
+                if (processor) {
+                    processor.disconnect();
+                }
+                
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+                
+                if (audioContext) {
+                    audioContext.close();
+                }
+                
+                // End session if we have one
+                if (sessionId && socket && socket.connected) {
+                    socket.emit('end_session');
+                }
+                
+                e2eLogger.log('✓ Test stopped', 'success');
+                
+                // Update UI
+                e2eTestBtn.disabled = false;
+                stopE2EBtn.disabled = true;
+                roleSelect.disabled = false;
+                
+            } catch (error) {
+                e2eLogger.log(`✗ Error stopping test: ${error.message}`, 'error');
+            }
+        });
+    </script>
+</body>
+</html>

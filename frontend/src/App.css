@@ -1,0 +1,440 @@
+/* App.css - Main Styling for Medical Interpreter */
+
+/* Global Styles */
+:root {
+  --primary-color: #3498db;
+  --secondary-color: #2ecc71;
+  --doctor-color: #3498db;
+  --patient-color: #e74c3c;
+  --accent-color: #f39c12;
+  --background-color: #f8f9fa;
+  --text-color: #333;
+  --border-color: #ddd;
+  --box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.6;
+  color: var(--text-color);
+  background-color: var(--background-color);
+  margin: 0;
+  padding: 0;
+}
+
+.app-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Header Styles */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.app-header h1 {
+  margin: 0;
+  color: var(--primary-color);
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* Main Layout */
+.app-main {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 20px;
+}
+
+/* Control Panel */
+.control-panel {
+  background-color: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: var(--box-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Role Toggle */
+.role-toggle-container {
+  padding: 15px;
+  border-radius: 8px;
+  background-color: #f0f4f8;
+}
+
+.current-role {
+  margin-bottom: 15px;
+}
+
+.current-role h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: var(--text-color);
+}
+
+.role-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.role-name {
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--primary-color);
+}
+
+.language-indicator {
+  font-size: 14px;
+  color: #666;
+}
+
+.toggle-button {
+  width: 100%;
+  padding: 10px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.toggle-button:hover {
+  background-color: #2980b9;
+}
+
+.toggle-button:disabled {
+  background-color: #95a5a6;
+  cursor: not-allowed;
+}
+
+.warning-message {
+  margin-top: 10px;
+  color: #e74c3c;
+  font-size: 12px;
+}
+
+/* Speech Stream */
+.speech-stream-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.recording-button {
+  padding: 15px;
+  background-color: var(--secondary-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.recording-button:hover {
+  background-color: #27ae60;
+}
+
+.recording-button.recording {
+  background-color: #e74c3c;
+  animation: pulse 1.5s infinite;
+}
+
+.recording-indicator {
+  text-align: center;
+  padding: 5px;
+  color: #e74c3c;
+  font-weight: bold;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.generate-summary-button {
+  margin-top: 20px;
+  padding: 12px;
+  background-color: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.generate-summary-button:hover {
+  background-color: #d35400;
+}
+
+.generate-summary-button:disabled {
+  background-color: #95a5a6;
+  cursor: not-allowed;
+}
+
+/* New Conversation Button */
+.new-conversation-button {
+  padding: 12px 20px;
+  background-color: var(--secondary-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.new-conversation-button:hover {
+  background-color: #27ae60;
+}
+
+.new-conversation-button:disabled {
+  background-color: #95a5a6;
+  cursor: not-allowed;
+}
+
+/* Transcript Panel */
+.transcript-panel {
+  background-color: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: var(--box-shadow);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.transcript-panel h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: var(--text-color);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 10px;
+}
+
+.empty-state {
+  text-align: center;
+  color: #666;
+  padding: 40px 0;
+}
+
+.transcript-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.transcript-item {
+  margin-bottom: 15px;
+  padding: 15px;
+  border-radius: 8px;
+  background-color: #f8f9fa;
+  border-left: 4px solid #ccc;
+}
+
+.transcript-item.current-speaker {
+  background-color: #edf7fd;
+}
+
+.transcript-header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.speaker-name {
+  font-weight: bold;
+  color: var(--primary-color);
+}
+
+.language-tag {
+  font-size: 12px;
+  background-color: #e0e0e0;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.timestamp {
+  font-size: 12px;
+  color: #888;
+  margin-left: auto;
+}
+
+.transcript-content {
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.translation {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #ddd;
+  font-style: italic;
+  color: #555;
+}
+
+.translation-label {
+  font-weight: bold;
+  margin-right: 6px;
+  color: #888;
+}
+
+/* Summary Panel */
+.summary-panel {
+  background-color: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: var(--box-shadow);
+}
+
+.summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 10px;
+}
+
+.summary-header h2 {
+  margin: 0;
+  color: var(--text-color);
+}
+
+.back-button {
+  padding: 8px 16px;
+  background-color: #f0f0f0;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.back-button:hover {
+  background-color: #e0e0e0;
+}
+
+.summary-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.summary-text h3,
+.detected-actions h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: var(--text-color);
+}
+
+.detected-actions ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.action-item {
+  padding: 10px;
+  margin-bottom: 8px;
+  background-color: #f0f8ff;
+  border-left: 3px solid var(--primary-color);
+  border-radius: 4px;
+}
+
+.summary-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.export-button {
+  padding: 10px 20px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.export-button:hover {
+  background-color: #2980b9;
+}
+
+.empty-summary {
+  text-align: center;
+  color: #666;
+  padding: 40px 0;
+}
+
+/* Audio Meter styling */
+.recording-indicators {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.audio-meter {
+  width: 100%;
+  height: 10px;
+  background-color: #e0e0e0;
+  border-radius: 5px;
+  overflow: hidden;
+  margin: 5px 0;
+}
+
+.audio-level {
+  height: 100%;
+  width: 0%;
+  background-color: var(--accent-color);
+  border-radius: 5px;
+  transition: width 0.1s ease;
+}
+
+.audio-level.active {
+  background-color: #e74c3c;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .app-main {
+    grid-template-columns: 1fr;
+  }
+  
+  .control-panel {
+    order: 1;
+  }
+  
+  .transcript-panel,
+  .summary-panel {
+    order: 2;
+  }
+}
