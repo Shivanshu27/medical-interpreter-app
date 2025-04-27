@@ -30,7 +30,7 @@ const SpeechStream = () => {
           
           // Listen for transcription updates from server
           socket.on('transcript_update', (transcript) => {
-            console.log("Received transcript:", transcript);
+            console.log("Received transcript");
             dispatch(addTranscript({
               speaker: transcript.speaker || role,
               text: transcript.text,
@@ -74,13 +74,13 @@ const SpeechStream = () => {
     initSocket();
 
     // Try to test connection explicitly
-    setTimeout(() => {
-      const socket = getSocket();
-      if (socket && socket.connected) {
-        console.log("Testing socket connection");
-        socket.emit('test_connection', { timestamp: new Date().toISOString() });
-      }
-    }, 2000);
+    // setTimeout(() => {
+    //   const socket = getSocket();
+    //   if (socket && socket.connected) {
+    //     console.log("Testing socket connection");
+    //     socket.emit('test_connection', { timestamp: new Date().toISOString() });
+    //   }
+    // }, 2000);
 
     return () => {
       // Clean up socket listeners on unmount
@@ -102,7 +102,7 @@ const SpeechStream = () => {
         audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)({
           sampleRate: 16000
         });
-        console.log("Audio context created successfully");
+        // console.log("Audio context created successfully");
       } catch (error) {
         console.error("Failed to create audio context:", error);
         setError("Could not access audio features. Please check your browser permissions.");
@@ -173,21 +173,21 @@ const SpeechStream = () => {
         // Get microphone access
         console.log('Requesting microphone access');
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        console.log('Microphone access granted');
+        // console.log('Microphone access granted');
         streamRef.current = stream;
         
         // if (!audioContextRef.current) {
-          console.log('Creating new AudioContext');
+          // console.log('Creating new AudioContext');
           audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)({
             sampleRate: 16000
           });
         // }
         
         const source = audioContextRef.current.createMediaStreamSource(stream);
-        console.log('Created media stream source');
+        // console.log('Created media stream source');
         
         // Use ScriptProcessor (more reliable across browsers)
-        console.log('Setting up ScriptProcessor');
+        // console.log('Setting up ScriptProcessor');
         setupScriptProcessor(source, socket);
       } catch (error) {
         console.error("Failed to start recording:", error);
@@ -198,7 +198,7 @@ const SpeechStream = () => {
   };
 
   const setupScriptProcessor = (source, socket) => {
-    console.log('Creating ScriptProcessor');
+    // console.log('Creating ScriptProcessor');
     processorRef.current = audioContextRef.current.createScriptProcessor(4096, 1, 1);
 
     const analyser = audioContextRef.current.createAnalyser();
@@ -267,7 +267,7 @@ const SpeechStream = () => {
     source.connect(processorRef.current);
     processorRef.current.connect(audioContextRef.current.destination);
 
-    console.log('ScriptProcessor setup complete');
+    // console.log('ScriptProcessor setup complete');
 
     // Cleanup interval on unmount
     return () => clearInterval(meterInterval);
@@ -305,31 +305,31 @@ const SpeechStream = () => {
   };
 
   // Add this function to directly test socket communication
-  const testSocketCommunication = () => {
-    const socket = getSocket();
-    if (!socket) {
-      console.error("Cannot test socket communication - socket not initialized");
-      return;
-    }
+  // const testSocketCommunication = () => {
+  //   const socket = getSocket();
+  //   if (!socket) {
+  //     console.error("Cannot test socket communication - socket not initialized");
+  //     return;
+  //   }
     
-    console.log("Testing socket communication...");
-    socket.emit("test_connection", { timestamp: new Date().toISOString() });
+  //   console.log("Testing socket communication...");
+  //   socket.emit("test_connection", { timestamp: new Date().toISOString() });
     
-    // Listen for response
-    socket.once("test_response", (data) => {
-      console.log("Received test response:", data);
-    });
-  };
+  //   // Listen for response
+  //   socket.once("test_response", (data) => {
+  //     console.log("Received test response:", data);
+  //   });
+  // };
 
   // Call this function when component mounts
-  useEffect(() => {
-    // Wait a bit to make sure socket is initialized
-    const timer = setTimeout(() => {
-      testSocketCommunication();
-    }, 3000);
+  // useEffect(() => {
+  //   // Wait a bit to make sure socket is initialized
+  //   const timer = setTimeout(() => {
+  //     testSocketCommunication();
+  //   }, 3000);
     
-    return () => clearTimeout(timer);
-  }, []);
+  //   return () => clearTimeout(timer);
+  // }, []);
 
   return (
     <div className="speech-stream-container">

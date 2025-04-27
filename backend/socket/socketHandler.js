@@ -11,7 +11,7 @@ module.exports = (io) => {
   io.engine.on("connection", (rawSocket) => {
     // Enable receiving binary data
     rawSocket.binaryType = "arraybuffer";
-    console.log(`DEBUG: Socket engine connection established with binary type: ${rawSocket.binaryType}`);
+    // console.log(`DEBUG: Socket engine connection established with binary type: ${rawSocket.binaryType}`);
   });
 
   io.on('connection', (socket) => {
